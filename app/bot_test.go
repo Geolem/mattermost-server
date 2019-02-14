@@ -486,6 +486,67 @@ func TestPermanentDeleteBot(t *testing.T) {
 	require.Equal(t, "store.sql_bot.get.missing.app_error", err.Id)
 }
 
+func TestDisableUserBots(t *testing.T) {
+	th := Setup().InitBasic()
+	defer th.TearDown()
+
+	creatorId1 := model.NewId()
+	creatorId2 := model.NewId()
+
+	u1bot1, err := th.App.CreateBot(&model.Bot{
+		Username:    "username11",
+		Description: "a bot",
+		CreatorId:   creatorId1,
+	})
+	require.Nil(t, err)
+	defer th.App.PermanentDeleteBot(u1bot1.UserId)
+
+	u1bot2, err := th.App.CreateBot(&model.Bot{
+		Username:    "username12",
+		Description: "a bot",
+		CreatorId:   creatorId1,
+	})
+	require.Nil(t, err)
+	defer th.App.PermanentDeleteBot(u1bot2.UserId)
+
+	u2bot1, err := th.App.CreateBot(&model.Bot{
+		Username:    "username21",
+		Description: "a bot",
+		CreatorId:   creatorId2,
+	})
+	require.Nil(t, err)
+	defer th.App.PermanentDeleteBot(u2bot1.UserId)
+
+	err = th.App.disableUserBots(creatorId1)
+	require.Nil(t, err)
+
+	// Check both bots and corrensponding users are disabled for creator 1
+	bot, err := th.App.GetBot(u1bot1.UserId, true)
+	require.Nil(t, err)
+	require.NotZero(t, bot.DeleteAt)
+
+	user, err := th.App.GetUser(u1bot1.UserId)
+	require.Nil(t, err)
+	require.NotZero(t, user.DeleteAt)
+
+	bot, err = th.App.GetBot(u1bot2.UserId, true)
+	require.Nil(t, err)
+	require.NotZero(t, bot.DeleteAt)
+
+	user, err = th.App.GetUser(u1bot2.UserId)
+	require.Nil(t, err)
+	require.NotZero(t, user.DeleteAt)
+
+	// Check bots and corresponding user not disabled for creator 2
+	bot, err = th.App.GetBot(u2bot1.UserId, true)
+	require.Nil(t, err)
+	require.Zero(t, bot.DeleteAt)
+
+	user, err = th.App.GetUser(u2bot1.UserId)
+	require.Nil(t, err)
+	require.Zero(t, user.DeleteAt)
+}
+
 func sToP(s string) *string {
 	return &s
 }
